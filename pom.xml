@@ -135,13 +135,15 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
-        <!--
-          测试依赖
-        -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
         </dependency>
     </dependencies>
 

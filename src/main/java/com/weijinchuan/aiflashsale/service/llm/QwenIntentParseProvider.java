@@ -56,11 +56,15 @@ public class QwenIntentParseProvider implements IntentParseProvider {
 
     @Override
     public ShoppingIntentVO parseShoppingIntent(String query) {
+        System.out.println("qwen apiKey = " + apiKey);
+
         // 没配置 key，直接走本地规则兜底
         if (apiKey == null || apiKey.isBlank()) {
+            System.out.println("走Mock兜底解析");
             return mockIntentParseProvider.parseShoppingIntent(query);
         }
 
+        System.out.println("走通义解析");
         try {
             RestClient restClient = RestClient.builder()
                     .baseUrl(baseUrl)

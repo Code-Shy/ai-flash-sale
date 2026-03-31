@@ -17,18 +17,36 @@ spring:
       port: 6379
       timeout: 3000ms
 
-mybatis-plus:
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  global-config:
-    db-config:
-      id-type: assign_id
+  mybatis-plus:
+    configuration:
+      log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    global-config:
+      db-config:
+        id-type: assign_id
 
-springdoc:
-  swagger-ui:
-    path: /swagger-ui.html
+  springdoc:
+    swagger-ui:
+      path: /swagger-ui.html
+
+  kafka:
+    bootstrap-servers: 127.0.0.1:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ai-flash-sale-order-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.weijinchuan.aiflashsale.event
 
 qwen:
   base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
   api-key: ${DASHSCOPE_API_KEY:}
   model: qwen-plus
+
+logging:
+  level:
+    org.apache.kafka: info
+    com.weijinchuan.aiflashsale: info

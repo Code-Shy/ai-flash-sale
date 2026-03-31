@@ -10,6 +10,8 @@ import com.weijinchuan.aiflashsale.domain.OrderOperateLog;
 import com.weijinchuan.aiflashsale.domain.Orders;
 import com.weijinchuan.aiflashsale.domain.Sku;
 import com.weijinchuan.aiflashsale.dto.order.SubmitOrderDTO;
+import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
+import com.weijinchuan.aiflashsale.event.producer.OrderEventProducer;
 import com.weijinchuan.aiflashsale.mapper.CartItemMapper;
 import com.weijinchuan.aiflashsale.mapper.CartMapper;
 import com.weijinchuan.aiflashsale.mapper.InventoryMapper;
@@ -45,6 +47,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderOperateLogMapper orderOperateLogMapper;
     private final SkuMapper skuMapper;
     private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    private final OrderEventProducer orderEventProducer;
 
     /**
      * 提交订单
@@ -168,10 +171,20 @@ public class OrderServiceImpl implements OrderService {
         orderOperateLogMapper.insert(log);
 
         // ========= 2. 删除已下单的购物车项 =========
-        // 目的：避免用户在下单成功后，购物车里还残留同一批已下单商品，导致再次提交
         for (CartItem item : checkedItems) {
             cartItemMapper.deleteById(item.getId());
         }
+
+        // ========= 3. 发送 Kafka 订单创建消息 =========
+        OrderCreatedMessage message = new OrderCreatedMessage();
+        message.setOrderId(order.getId());
+        message.setOrderNo(order.getOrderNo());
+        message.setUserId(order.getUserId());
+        message.setStoreId(order.getStoreId());
+        message.setPayAmount(order.getPayAmount());
+        message.setCreateTime(order.getCreateTime());
+
+        orderEventProducer.sendOrderCreatedMessage(message);
 
         return order.getId();
     }
