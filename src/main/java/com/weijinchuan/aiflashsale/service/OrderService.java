@@ -12,12 +12,21 @@ import java.util.List;
 public interface OrderService {
 
     /**
+     * 生成下单幂等 token
+     *
+     * @param userId 用户 ID
+     * @return token
+     */
+    String generateSubmitToken(Long userId);
+
+    /**
      * 提交订单
      *
      * @param dto 请求参数
+     * @param submitToken 幂等 token
      * @return 订单 ID
      */
-    Long submitOrder(SubmitOrderDTO dto);
+    Long submitOrder(SubmitOrderDTO dto, String submitToken);
 
     /**
      * 查询订单详情

@@ -23,12 +23,22 @@ public class OrderController {
     private final OrderService orderService;
 
     /**
+     * 获取下单幂等 token
+     */
+    @GetMapping("/token")
+    @Operation(summary = "获取下单幂等 token")
+    public Result<String> generateSubmitToken(@RequestParam Long userId) {
+        return Result.success(orderService.generateSubmitToken(userId));
+    }
+
+    /**
      * 提交订单
      */
     @PostMapping("/submit")
     @Operation(summary = "提交订单")
-    public Result<Long> submitOrder(@Valid @RequestBody SubmitOrderDTO dto) {
-        return Result.success(orderService.submitOrder(dto));
+    public Result<Long> submitOrder(@Valid @RequestBody SubmitOrderDTO dto,
+                                    @RequestHeader("Idempotency-Token") String submitToken) {
+        return Result.success(orderService.submitOrder(dto, submitToken));
     }
 
     /**

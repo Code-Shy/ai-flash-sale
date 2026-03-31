@@ -44,6 +44,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderItemMapper orderItemMapper;
     private final OrderOperateLogMapper orderOperateLogMapper;
     private final SkuMapper skuMapper;
+    private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
     /**
      * 提交订单
@@ -62,7 +63,20 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Long submitOrder(SubmitOrderDTO dto) {
+    public Long submitOrder(SubmitOrderDTO dto, String submitToken) {
+        // ========= 1. 校验并消费幂等 token =========
+        // 同一个 token 只能成功消费一次。
+        // 如果 token 不存在，说明：
+        // 1. 已经提交过
+        // 2. token 失效
+        String tokenKey = com.weijinchuan.aiflashsale.common.constant.RedisKeyConstants.ORDER_SUBMIT_TOKEN_PREFIX
+                + dto.getUserId() + ":" + submitToken;
+
+        String tokenValue = stringRedisTemplate.opsForValue().getAndDelete(tokenKey);
+        if (!"1".equals(tokenValue)) {
+            throw new BizException(5003, "请勿重复提交订单");
+        }
+
         // 查询当前用户在当前门店下的有效购物车
         Cart cart = cartMapper.selectOne(
                 new LambdaQueryWrapper<Cart>()
@@ -152,6 +166,12 @@ public class OrderServiceImpl implements OrderService {
         log.setOperateBy("SYSTEM");
         log.setRemark("创建订单");
         orderOperateLogMapper.insert(log);
+
+        // ========= 2. 删除已下单的购物车项 =========
+        // 目的：避免用户在下单成功后，购物车里还残留同一批已下单商品，导致再次提交
+        for (CartItem item : checkedItems) {
+            cartItemMapper.deleteById(item.getId());
+        }
 
         return order.getId();
     }
@@ -278,5 +298,23 @@ public class OrderServiceImpl implements OrderService {
             result.add(vo);
         }
         return result;
+    }
+
+    /**
+     * 生成下单幂等 token
+     *
+     * 逻辑：
+     * 1. 为指定用户生成一个唯一 token
+     * 2. 写入 Redis
+     * 3. 设置 10 分钟过期
+     */
+    @Override
+    public String generateSubmitToken(Long userId) {
+        String token = IdUtil.simpleUUID();
+        String tokenKey = com.weijinchuan.aiflashsale.common.constant.RedisKeyConstants.ORDER_SUBMIT_TOKEN_PREFIX
+                + userId + ":" + token;
+
+        stringRedisTemplate.opsForValue().set(tokenKey, "1", 10, java.util.concurrent.TimeUnit.MINUTES);
+        return token;
     }
 }
