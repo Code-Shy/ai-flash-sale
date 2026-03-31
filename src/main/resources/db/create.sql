@@ -1,0 +1,1 @@
+CREATE DATABASE ai_flash_sale DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
