@@ -1,0 +1,82 @@
+[
+  {
+    "id": "guide-americano-night",
+    "title": "美式咖啡适合夜宵和加班提神",
+    "content": "美式咖啡通常口感偏清爽，甜度低，适合想要提神、又不希望负担太重的场景。夜宵或加班时更适合搭配三明治等轻食，避免和特别油腻的商品一起推荐。",
+    "docType": "guide",
+    "storeId": null,
+    "skuId": null,
+    "category": "咖啡",
+    "tags": ["美式", "咖啡", "提神", "加班", "夜宵", "清淡"]
+  },
+  {
+    "id": "guide-sandwich-light-meal",
+    "title": "鸡胸肉三明治更适合作为轻食选择",
+    "content": "鸡胸肉三明治通常更符合轻食诉求，适合早餐、午间简餐或需要控制油腻感的用户。和黑咖啡、美式等低糖饮品搭配时，更容易形成清爽组合。",
+    "docType": "guide",
+    "storeId": null,
+    "skuId": null,
+    "category": "轻食",
+    "tags": ["三明治", "鸡胸肉", "轻食", "早餐", "清淡", "搭配"]
+  },
+  {
+    "id": "guide-odeng-night",
+    "title": "关东煮适合作为夜间热食",
+    "content": "关东煮属于偏热食的即时零售商品，夜间、雨天或想吃点热乎的场景里更容易被接受。如果用户强调不辣或者想要暖胃，关东煮通常比重口味炸物更稳妥。",
+    "docType": "guide",
+    "storeId": null,
+    "skuId": null,
+    "category": "热食",
+    "tags": ["关东煮", "热食", "夜宵", "暖胃", "不辣"]
+  },
+  {
+    "id": "faq-spicy-preference",
+    "title": "不辣偏好下优先推荐清爽或原味商品",
+    "content": "当用户明确表达不辣时，导购回复里应该优先考虑原味、清汤、经典口味等商品，并避免把“重辣、香辣、火鸡味”等描述明显的商品排到前面。",
+    "docType": "faq",
+    "storeId": null,
+    "skuId": null,
+    "category": "口味",
+    "tags": ["不辣", "原味", "清汤", "口味偏好"]
+  },
+  {
+    "id": "faq-budget-combo",
+    "title": "低预算场景更适合单品优先而不是复杂凑单",
+    "content": "如果用户预算比较紧，优先推荐单价直接落在预算内的商品，再补充可搭配建议。不要先给出超预算组合，否则会降低推荐的可信度和转化率。",
+    "docType": "faq",
+    "storeId": null,
+    "skuId": null,
+    "category": "预算",
+    "tags": ["预算", "单品", "凑单", "价格"]
+  },
+  {
+    "id": "guide-breakfast-coffee",
+    "title": "早餐场景下咖啡更适合搭配轻食",
+    "content": "早餐需求里，如果用户既想提神又不想太油腻，可以优先考虑美式咖啡、拿铁与三明治、面包等轻食组合。回答时建议突出清爽和效率感，而不是厚重满足感。",
+    "docType": "guide",
+    "storeId": null,
+    "skuId": null,
+    "category": "早餐",
+    "tags": ["早餐", "咖啡", "轻食", "三明治", "美式"]
+  },
+  {
+    "id": "guide-night-snack-balance",
+    "title": "夜宵推荐更适合控制油腻感",
+    "content": "夜宵导购不一定要强调“吃饱”，更适合根据用户偏好平衡热量和口味。如果用户偏清淡，可以推荐热食和低糖饮品组合，而不是一味推炸物和高糖饮料。",
+    "docType": "guide",
+    "storeId": null,
+    "skuId": null,
+    "category": "夜宵",
+    "tags": ["夜宵", "清淡", "热食", "低糖", "搭配"]
+  },
+  {
+    "id": "store-default-service",
+    "title": "门店导购回答应优先基于当前门店商品",
+    "content": "当用户在某个门店内发起导购问题时，回答应优先结合当前门店有售商品，再引用通用知识。缺少事实时要明确说明信息有限，避免把其他门店或未售商品混入推荐。",
+    "docType": "policy",
+    "storeId": null,
+    "skuId": null,
+    "category": "导购规范",
+    "tags": ["门店", "导购", "事实约束", "推荐规范"]
+  }
+]

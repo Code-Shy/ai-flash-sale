@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weijinchuan.aiflashsale.vo.ai.ShoppingIntentVO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
@@ -21,6 +22,7 @@ import java.util.Map;
  * 2. 只负责“自然语言 -> 结构化意图”
  * 3. 如果 API Key 未配置或调用失败，则回退到 Mock 解析器
  */
+@Slf4j
 @Component
 @Primary
 @RequiredArgsConstructor
@@ -56,15 +58,11 @@ public class QwenIntentParseProvider implements IntentParseProvider {
 
     @Override
     public ShoppingIntentVO parseShoppingIntent(String query) {
-        System.out.println("qwen apiKey = " + apiKey);
-
         // 没配置 key，直接走本地规则兜底
         if (apiKey == null || apiKey.isBlank()) {
-            System.out.println("走Mock兜底解析");
             return mockIntentParseProvider.parseShoppingIntent(query);
         }
 
-        System.out.println("走通义解析");
         try {
             RestClient restClient = RestClient.builder()
                     .baseUrl(baseUrl)
@@ -121,6 +119,7 @@ public class QwenIntentParseProvider implements IntentParseProvider {
             return intent;
         } catch (Exception e) {
             // 出现异常时回退到 Mock 实现，保证主链路可用
+            log.warn("调用通义意图识别失败，已回退到本地规则");
             return mockIntentParseProvider.parseShoppingIntent(query);
         }
     }

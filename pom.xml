@@ -1,11 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-  Maven 项目描述文件
-  说明：
-  1. 当前版本方案统一使用 Spring Boot 3.2.5
-  2. 这样可以和我们前面的代码、Swagger 配置、Day 1 教程保持一致
-  3. 同时避免 Spring Boot 4 与部分三方 starter 的兼容问题
--->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -41,6 +34,7 @@
         <mybatis-plus.version>3.5.10.1</mybatis-plus.version>
         <springdoc.version>2.5.0</springdoc.version>
         <hutool.version>5.8.27</hutool.version>
+        <lombok.version>1.18.32</lombok.version>
 
         <!-- 保留方法参数名，Swagger/参数绑定更稳 -->
         <maven.compiler.parameters>true</maven.compiler.parameters>
@@ -114,6 +108,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <optional>true</optional>
         </dependency>
 
@@ -171,6 +166,13 @@
                     <target>${java.version}</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
                     <parameters>${maven.compiler.parameters}</parameters>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
         </plugins>

@@ -46,6 +46,12 @@ qwen:
   api-key: ${DASHSCOPE_API_KEY:}
   model: qwen-plus
 
+rag:
+  knowledge-base-location: ai/knowledge-base.json
+  retrieval:
+    default-top-k: 4
+    preview-length: 88
+
 logging:
   level:
     org.apache.kafka: info

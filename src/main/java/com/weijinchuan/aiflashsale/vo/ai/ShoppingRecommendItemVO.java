@@ -3,6 +3,7 @@ package com.weijinchuan.aiflashsale.vo.ai;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * AI 推荐商品项
@@ -39,4 +40,9 @@ public class ShoppingRecommendItemVO {
      * 推荐理由
      */
     private String reason;
+
+    /**
+     * 推荐理由对应的知识引用
+     */
+    private List<KnowledgeReferenceVO> references;
 }

@@ -1,6 +1,8 @@
 package com.weijinchuan.aiflashsale.service;
 
+import com.weijinchuan.aiflashsale.dto.ai.ShoppingAskDTO;
 import com.weijinchuan.aiflashsale.dto.ai.ShoppingRecommendDTO;
+import com.weijinchuan.aiflashsale.vo.ai.ShoppingAnswerVO;
 import com.weijinchuan.aiflashsale.vo.ai.ShoppingRecommendVO;
 
 /**
@@ -15,4 +17,12 @@ public interface AiShoppingService {
      * @return 推荐结果
      */
     ShoppingRecommendVO recommend(ShoppingRecommendDTO dto);
+
+    /**
+     * AI 导购问答
+     *
+     * @param dto 请求参数
+     * @return 问答结果
+     */
+    ShoppingAnswerVO ask(ShoppingAskDTO dto);
 }
