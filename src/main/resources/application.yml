@@ -59,6 +59,13 @@ outbox:
     max-attempts: 8
     backoff-seconds: 30
 
+order:
+  timeout:
+    minutes: 30
+    close:
+      fixed-delay-ms: 10000
+      batch-size: 20
+
 logging:
   level:
     org.apache.kafka: info

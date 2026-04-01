@@ -12,5 +12,6 @@ CREATE TABLE `orders` (
                           `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                           `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                           UNIQUE KEY `uk_order_no` (`order_no`),
-                          KEY `idx_user_id` (`user_id`)
+                          KEY `idx_user_id` (`user_id`),
+                          KEY `idx_status_expire_time` (`order_status`, `expire_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

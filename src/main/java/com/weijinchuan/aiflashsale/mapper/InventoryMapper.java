@@ -52,4 +52,23 @@ public interface InventoryMapper extends BaseMapper<Inventory> {
     int rollbackLockedStock(@Param("storeId") Long storeId,
                             @Param("skuId") Long skuId,
                             @Param("quantity") Integer quantity);
+
+    /**
+     * 支付成功后确认锁定库存。
+     *
+     * 逻辑：
+     * 1. locked_stock 扣减
+     * 2. available_stock 保持不变，因为下单锁库存时已扣减
+     */
+    @Update("""
+        UPDATE inventory
+        SET locked_stock = locked_stock - #{quantity},
+            version = version + 1
+        WHERE store_id = #{storeId}
+          AND sku_id = #{skuId}
+          AND locked_stock >= #{quantity}
+        """)
+    int confirmLockedStock(@Param("storeId") Long storeId,
+                           @Param("skuId") Long skuId,
+                           @Param("quantity") Integer quantity);
 }

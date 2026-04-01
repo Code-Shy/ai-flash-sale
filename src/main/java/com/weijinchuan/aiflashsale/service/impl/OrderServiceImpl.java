@@ -2,6 +2,7 @@ package com.weijinchuan.aiflashsale.service.impl;
 
 import cn.hutool.core.util.IdUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.weijinchuan.aiflashsale.common.constant.OrderStatusConstants;
 import com.weijinchuan.aiflashsale.common.exception.BizException;
 import com.weijinchuan.aiflashsale.domain.Cart;
 import com.weijinchuan.aiflashsale.domain.CartItem;
@@ -24,6 +25,7 @@ import com.weijinchuan.aiflashsale.vo.OrderDetailVO;
 import com.weijinchuan.aiflashsale.vo.OrderItemVO;
 import com.weijinchuan.aiflashsale.vo.OrderListVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
+    private static final String OPERATE_BY_SYSTEM = "SYSTEM";
+    private static final String OPERATE_BY_USER = "USER";
+    private static final String OPERATE_TYPE_CREATE = "CREATE";
+    private static final String OPERATE_TYPE_CANCEL = "CANCEL";
+    private static final String OPERATE_TYPE_PAY = "PAY";
+    private static final String OPERATE_TYPE_COMPLETE = "COMPLETE";
+    private static final String OPERATE_TYPE_EXPIRE = "EXPIRE";
+
     private final CartMapper cartMapper;
     private final CartItemMapper cartItemMapper;
     private final InventoryMapper inventoryMapper;
@@ -48,6 +58,9 @@ public class OrderServiceImpl implements OrderService {
     private final SkuMapper skuMapper;
     private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
     private final OutboxEventService outboxEventService;
+
+    @Value("${order.timeout.minutes:30}")
+    private long orderTimeoutMinutes;
 
     /**
      * 提交订单
@@ -132,9 +145,9 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(totalAmount);
         order.setDeliveryFee(BigDecimal.ZERO);
         order.setPayAmount(totalAmount);
-        order.setOrderStatus(10);
+        order.setOrderStatus(OrderStatusConstants.PENDING_PAYMENT);
         order.setRemark(dto.getRemark());
-        order.setExpireTime(LocalDateTime.now().plusMinutes(30));
+        order.setExpireTime(LocalDateTime.now().plusMinutes(orderTimeoutMinutes));
         ordersMapper.insert(order);
 
         // 创建订单项
@@ -159,16 +172,8 @@ public class OrderServiceImpl implements OrderService {
             orderItemMapper.insert(orderItem);
         }
 
-        // 写订单操作日志
-        OrderOperateLog log = new OrderOperateLog();
-        log.setOrderId(order.getId());
-        log.setOrderNo(orderNo);
-        log.setBeforeStatus(null);
-        log.setAfterStatus(10);
-        log.setOperateType("CREATE");
-        log.setOperateBy("SYSTEM");
-        log.setRemark("创建订单");
-        orderOperateLogMapper.insert(log);
+        logOrderStatusChange(order.getId(), orderNo, null, OrderStatusConstants.PENDING_PAYMENT,
+                OPERATE_TYPE_CREATE, OPERATE_BY_USER, "创建订单");
 
         // ========= 2. 删除已下单的购物车项 =========
         for (CartItem item : checkedItems) {
@@ -246,48 +251,80 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void cancelOrder(Long userId, Long orderId) {
-        Orders order = ordersMapper.selectById(orderId);
-        if (order == null) {
-            throw new BizException(404, "订单不存在");
-        }
+        Orders order = getOrderForUpdate(orderId);
         validateOrderOwner(userId, order);
 
-        if (order.getOrderStatus() != 10) {
+        if (order.getOrderStatus() != OrderStatusConstants.PENDING_PAYMENT) {
             throw new BizException(4004, "当前订单状态不允许取消");
         }
 
-        List<OrderItem> orderItems = orderItemMapper.selectList(
-                new LambdaQueryWrapper<OrderItem>()
-                        .eq(OrderItem::getOrderId, orderId)
-        );
+        closePendingOrder(order, OPERATE_TYPE_CANCEL, OPERATE_BY_USER, "取消订单");
+    }
 
-        // 回滚锁定库存
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void payOrder(Long userId, Long orderId) {
+        Orders order = getOrderForUpdate(orderId);
+        validateOrderOwner(userId, order);
+
+        if (order.getOrderStatus() != OrderStatusConstants.PENDING_PAYMENT) {
+            throw new BizException(4005, "当前订单状态不允许支付");
+        }
+
+        if (order.getExpireTime() != null && !order.getExpireTime().isAfter(LocalDateTime.now())) {
+            closePendingOrder(order, OPERATE_TYPE_EXPIRE, OPERATE_BY_SYSTEM, "订单支付时已超时，自动取消");
+            throw new BizException(4006, "订单已超时，无法继续支付");
+        }
+
+        List<OrderItem> orderItems = getOrderItems(order.getId());
         for (OrderItem item : orderItems) {
-            int updated = inventoryMapper.rollbackLockedStock(
+            int updated = inventoryMapper.confirmLockedStock(
                     order.getStoreId(),
                     item.getSkuId(),
                     item.getQuantity()
             );
             if (updated <= 0) {
-                throw new BizException(5004, "库存回滚失败，SKU=" + item.getSkuId());
+                throw new BizException(5006, "确认库存失败，SKU=" + item.getSkuId());
             }
         }
 
-        // 更新订单状态
-        Integer beforeStatus = order.getOrderStatus();
-        order.setOrderStatus(30);
-        ordersMapper.updateById(order);
+        order.setExpireTime(null);
+        updateOrderStatus(order, OrderStatusConstants.PAID);
+        logOrderStatusChange(order.getId(), order.getOrderNo(),
+                OrderStatusConstants.PENDING_PAYMENT, OrderStatusConstants.PAID,
+                OPERATE_TYPE_PAY, OPERATE_BY_USER, "支付订单");
+    }
 
-        // 写操作日志
-        OrderOperateLog log = new OrderOperateLog();
-        log.setOrderId(order.getId());
-        log.setOrderNo(order.getOrderNo());
-        log.setBeforeStatus(beforeStatus);
-        log.setAfterStatus(30);
-        log.setOperateType("CANCEL");
-        log.setOperateBy("USER");
-        log.setRemark("取消订单");
-        orderOperateLogMapper.insert(log);
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void completeOrder(Long userId, Long orderId) {
+        Orders order = getOrderForUpdate(orderId);
+        validateOrderOwner(userId, order);
+
+        if (order.getOrderStatus() != OrderStatusConstants.PAID) {
+            throw new BizException(4007, "当前订单状态不允许完成");
+        }
+
+        updateOrderStatus(order, OrderStatusConstants.COMPLETED);
+        logOrderStatusChange(order.getId(), order.getOrderNo(),
+                OrderStatusConstants.PAID, OrderStatusConstants.COMPLETED,
+                OPERATE_TYPE_COMPLETE, OPERATE_BY_USER, "完成订单");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void expireOrder(Long orderId) {
+        Orders order = getOrderForUpdate(orderId);
+
+        if (order.getOrderStatus() != OrderStatusConstants.PENDING_PAYMENT) {
+            return;
+        }
+
+        if (order.getExpireTime() == null || order.getExpireTime().isAfter(LocalDateTime.now())) {
+            return;
+        }
+
+        closePendingOrder(order, OPERATE_TYPE_EXPIRE, OPERATE_BY_SYSTEM, "订单超时自动取消");
     }
 
     /**
@@ -340,5 +377,69 @@ public class OrderServiceImpl implements OrderService {
         if (!userId.equals(order.getUserId())) {
             throw new BizException(403, "无权操作该订单");
         }
+    }
+
+    private Orders getOrderForUpdate(Long orderId) {
+        Orders order = ordersMapper.selectByIdForUpdate(orderId);
+        if (order == null) {
+            throw new BizException(404, "订单不存在");
+        }
+        return order;
+    }
+
+    private List<OrderItem> getOrderItems(Long orderId) {
+        return orderItemMapper.selectList(
+                new LambdaQueryWrapper<OrderItem>()
+                        .eq(OrderItem::getOrderId, orderId)
+        );
+    }
+
+    private void rollbackLockedInventory(Orders order) {
+        List<OrderItem> orderItems = getOrderItems(order.getId());
+        for (OrderItem item : orderItems) {
+            int updated = inventoryMapper.rollbackLockedStock(
+                    order.getStoreId(),
+                    item.getSkuId(),
+                    item.getQuantity()
+            );
+            if (updated <= 0) {
+                throw new BizException(5004, "库存回滚失败，SKU=" + item.getSkuId());
+            }
+        }
+    }
+
+    private void closePendingOrder(Orders order,
+                                   String operateType,
+                                   String operateBy,
+                                   String remark) {
+        rollbackLockedInventory(order);
+        order.setExpireTime(null);
+        updateOrderStatus(order, OrderStatusConstants.CANCELED);
+        logOrderStatusChange(order.getId(), order.getOrderNo(),
+                OrderStatusConstants.PENDING_PAYMENT, OrderStatusConstants.CANCELED,
+                operateType, operateBy, remark);
+    }
+
+    private void updateOrderStatus(Orders order, Integer targetStatus) {
+        order.setOrderStatus(targetStatus);
+        ordersMapper.updateById(order);
+    }
+
+    private void logOrderStatusChange(Long orderId,
+                                      String orderNo,
+                                      Integer beforeStatus,
+                                      Integer afterStatus,
+                                      String operateType,
+                                      String operateBy,
+                                      String remark) {
+        OrderOperateLog log = new OrderOperateLog();
+        log.setOrderId(orderId);
+        log.setOrderNo(orderNo);
+        log.setBeforeStatus(beforeStatus);
+        log.setAfterStatus(afterStatus);
+        log.setOperateType(operateType);
+        log.setOperateBy(operateBy);
+        log.setRemark(remark);
+        orderOperateLogMapper.insert(log);
     }
 }

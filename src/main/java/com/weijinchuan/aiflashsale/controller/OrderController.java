@@ -63,6 +63,28 @@ public class OrderController {
     }
 
     /**
+     * 支付订单
+     */
+    @PostMapping("/{orderId}/pay")
+    @Operation(summary = "支付订单")
+    public Result<Void> payOrder(@RequestParam Long userId,
+                                 @PathVariable Long orderId) {
+        orderService.payOrder(userId, orderId);
+        return Result.success();
+    }
+
+    /**
+     * 完成订单
+     */
+    @PostMapping("/{orderId}/complete")
+    @Operation(summary = "完成订单")
+    public Result<Void> completeOrder(@RequestParam Long userId,
+                                      @PathVariable Long orderId) {
+        orderService.completeOrder(userId, orderId);
+        return Result.success();
+    }
+
+    /**
      * 查询用户订单列表
      */
     @GetMapping

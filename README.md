@@ -4,9 +4,11 @@
 
 - 商品与门店查询
 - 单门店购物车
-- 提交订单、锁定库存、取消订单
+- 提交订单、锁定库存、支付订单、完成订单、取消订单
+- 超时未支付自动关闭并释放库存
 - Redis 缓存与幂等 token
 - Kafka 订单创建事件
+- Outbox 事务消息与重试补偿
 - AI 导购推荐
 - 轻量 RAG 导购问答
 
@@ -74,6 +76,7 @@ src/main/resources
 - `order.sql`
 - `order_item.sql`
 - `order_operate_log.sql`
+- `outbox_event.sql`
 
 建议顺序：
 
@@ -91,6 +94,33 @@ src/main/resources
 - Kafka 地址
 - Qwen 配置
 - RAG 知识库配置
+- Outbox 重试配置
+- 订单超时关闭任务配置
+
+当前订单状态机：
+
+- `10` 待支付
+- `20` 已支付
+- `30` 已取消
+- `40` 已完成
+
+当前订单相关接口：
+
+- `GET /orders/token?userId=1`
+- `POST /orders/submit`
+- `GET /orders/{orderId}?userId=1`
+- `POST /orders/{orderId}/cancel?userId=1`
+- `POST /orders/{orderId}/pay?userId=1`
+- `POST /orders/{orderId}/complete?userId=1`
+- `GET /orders?userId=1`
+
+订单状态流转：
+
+```text
+提交订单 -> 待支付 -> 已支付 -> 已完成
+              └-------> 已取消
+              └-------> 超时自动取消
+```
 
 ### 4. 配置 DashScope Key
 
@@ -107,4 +137,3 @@ export DASHSCOPE_API_KEY=your_api_key
 ```text
 http://localhost:8080/swagger-ui.html
 ```
-

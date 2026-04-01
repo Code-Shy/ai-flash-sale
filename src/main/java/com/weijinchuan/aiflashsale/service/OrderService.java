@@ -39,6 +39,21 @@ public interface OrderService {
     void cancelOrder(Long userId, Long orderId);
 
     /**
+     * 支付订单
+     */
+    void payOrder(Long userId, Long orderId);
+
+    /**
+     * 完成订单
+     */
+    void completeOrder(Long userId, Long orderId);
+
+    /**
+     * 超时关闭订单
+     */
+    void expireOrder(Long orderId);
+
+    /**
      * 查询用户订单列表
      */
     List<OrderListVO> listOrders(Long userId);
