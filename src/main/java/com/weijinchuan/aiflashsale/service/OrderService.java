@@ -44,6 +44,11 @@ public interface OrderService {
     void payOrder(Long userId, Long orderId);
 
     /**
+     * 第三方支付回调确认支付成功
+     */
+    void confirmPaidOrder(Long userId, Long orderId);
+
+    /**
      * 完成订单
      */
     void completeOrder(Long userId, Long orderId);

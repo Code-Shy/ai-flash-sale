@@ -278,32 +278,25 @@ public class OrderServiceImpl implements OrderService {
             throw new BizException(4006, "订单已超时，无法继续支付");
         }
 
-        List<OrderItem> orderItems = getOrderItems(order.getId());
-        for (OrderItem item : orderItems) {
-            int updated = inventoryMapper.confirmLockedStock(
-                    order.getStoreId(),
-                    item.getSkuId(),
-                    item.getQuantity()
-            );
-            if (updated <= 0) {
-                throw new BizException(5006, "确认库存失败，SKU=" + item.getSkuId());
-            }
+        confirmPaidLockedOrder(order, OPERATE_BY_USER, "支付订单");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void confirmPaidOrder(Long userId, Long orderId) {
+        Orders order = getOrderForUpdate(orderId);
+        validateOrderOwner(userId, order);
+
+        if (order.getOrderStatus() == OrderStatusConstants.PAID
+                || order.getOrderStatus() == OrderStatusConstants.COMPLETED) {
+            return;
         }
 
-        order.setExpireTime(null);
-        updateOrderStatus(order, OrderStatusConstants.PAID);
-        logOrderStatusChange(order.getId(), order.getOrderNo(),
-                OrderStatusConstants.PENDING_PAYMENT, OrderStatusConstants.PAID,
-                OPERATE_TYPE_PAY, OPERATE_BY_USER, "支付订单");
+        if (order.getOrderStatus() != OrderStatusConstants.PENDING_PAYMENT) {
+            throw new BizException(4005, "当前订单状态不允许确认支付");
+        }
 
-        OrderPaidMessage message = new OrderPaidMessage();
-        message.setOrderId(order.getId());
-        message.setOrderNo(order.getOrderNo());
-        message.setUserId(order.getUserId());
-        message.setStoreId(order.getStoreId());
-        message.setPayAmount(order.getPayAmount());
-        message.setPaidTime(LocalDateTime.now());
-        outboxEventService.saveOrderPaidEvent(message);
+        confirmPaidLockedOrder(order, OPERATE_BY_SYSTEM, "第三方支付回调确认支付");
     }
 
     @Override
@@ -438,6 +431,35 @@ public class OrderServiceImpl implements OrderService {
         logOrderStatusChange(order.getId(), order.getOrderNo(),
                 OrderStatusConstants.PENDING_PAYMENT, OrderStatusConstants.CANCELED,
                 operateType, operateBy, remark);
+    }
+
+    private void confirmPaidLockedOrder(Orders order, String operateBy, String remark) {
+        List<OrderItem> orderItems = getOrderItems(order.getId());
+        for (OrderItem item : orderItems) {
+            int updated = inventoryMapper.confirmLockedStock(
+                    order.getStoreId(),
+                    item.getSkuId(),
+                    item.getQuantity()
+            );
+            if (updated <= 0) {
+                throw new BizException(5006, "确认库存失败，SKU=" + item.getSkuId());
+            }
+        }
+
+        order.setExpireTime(null);
+        updateOrderStatus(order, OrderStatusConstants.PAID);
+        logOrderStatusChange(order.getId(), order.getOrderNo(),
+                OrderStatusConstants.PENDING_PAYMENT, OrderStatusConstants.PAID,
+                OPERATE_TYPE_PAY, operateBy, remark);
+
+        OrderPaidMessage message = new OrderPaidMessage();
+        message.setOrderId(order.getId());
+        message.setOrderNo(order.getOrderNo());
+        message.setUserId(order.getUserId());
+        message.setStoreId(order.getStoreId());
+        message.setPayAmount(order.getPayAmount());
+        message.setPaidTime(LocalDateTime.now());
+        outboxEventService.saveOrderPaidEvent(message);
     }
 
     private void updateOrderStatus(Orders order, Integer targetStatus) {

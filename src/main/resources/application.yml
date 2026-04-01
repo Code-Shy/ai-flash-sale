@@ -46,6 +46,17 @@ qwen:
   api-key: ${DASHSCOPE_API_KEY:}
   model: qwen-plus
 
+wechat:
+  pay:
+    enabled: false
+    app-id: ${WECHAT_PAY_APP_ID:}
+    merchant-id: ${WECHAT_PAY_MERCHANT_ID:}
+    merchant-serial-number: ${WECHAT_PAY_MERCHANT_SERIAL_NO:}
+    api-v3-key: ${WECHAT_PAY_API_V3_KEY:}
+    private-key-path: ${WECHAT_PAY_PRIVATE_KEY_PATH:}
+    notify-url: ${WECHAT_PAY_NOTIFY_URL:http://localhost:8080/payments/wechat/native/notify}
+    description-prefix: AI闪购订单
+
 rag:
   knowledge-base-location: ai/knowledge-base.json
   retrieval:

@@ -35,6 +35,7 @@
         <springdoc.version>2.5.0</springdoc.version>
         <hutool.version>5.8.27</hutool.version>
         <lombok.version>1.18.32</lombok.version>
+        <wechatpay-java.version>0.2.17</wechatpay-java.version>
 
         <!-- 保留方法参数名，Swagger/参数绑定更稳 -->
         <maven.compiler.parameters>true</maven.compiler.parameters>
@@ -139,6 +140,12 @@
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.wechatpay-apiv3</groupId>
+            <artifactId>wechatpay-java</artifactId>
+            <version>${wechatpay-java.version}</version>
         </dependency>
     </dependencies>
 

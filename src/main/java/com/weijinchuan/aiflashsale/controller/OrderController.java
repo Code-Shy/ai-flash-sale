@@ -63,10 +63,10 @@ public class OrderController {
     }
 
     /**
-     * 支付订单
+     * 模拟支付订单，仅开发测试使用
      */
     @PostMapping("/{orderId}/pay")
-    @Operation(summary = "支付订单")
+    @Operation(summary = "模拟支付订单，仅开发测试使用")
     public Result<Void> payOrder(@RequestParam Long userId,
                                  @PathVariable Long orderId) {
         orderService.payOrder(userId, orderId);
