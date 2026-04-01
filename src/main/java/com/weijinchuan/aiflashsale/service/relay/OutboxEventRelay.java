@@ -2,12 +2,14 @@ package com.weijinchuan.aiflashsale.service.relay;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weijinchuan.aiflashsale.common.constant.OutboxEventTypeConstants;
 import com.weijinchuan.aiflashsale.domain.OutboxEvent;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
+import com.weijinchuan.aiflashsale.event.OrderCompletedMessage;
+import com.weijinchuan.aiflashsale.event.OrderPaidMessage;
 import com.weijinchuan.aiflashsale.event.OutboxEventCreated;
 import com.weijinchuan.aiflashsale.event.producer.OrderEventProducer;
 import com.weijinchuan.aiflashsale.mapper.OutboxEventMapper;
-import com.weijinchuan.aiflashsale.service.impl.OutboxEventServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -88,9 +90,15 @@ public class OutboxEventRelay {
         }
 
         try {
-            if (OutboxEventServiceImpl.EVENT_TYPE_ORDER_CREATED.equals(outboxEvent.getEventType())) {
+            if (OutboxEventTypeConstants.ORDER_CREATED.equals(outboxEvent.getEventType())) {
                 OrderCreatedMessage message = objectMapper.readValue(outboxEvent.getPayload(), OrderCreatedMessage.class);
                 orderEventProducer.sendOrderCreatedMessage(message);
+            } else if (OutboxEventTypeConstants.ORDER_PAID.equals(outboxEvent.getEventType())) {
+                OrderPaidMessage message = objectMapper.readValue(outboxEvent.getPayload(), OrderPaidMessage.class);
+                orderEventProducer.sendOrderPaidMessage(message);
+            } else if (OutboxEventTypeConstants.ORDER_COMPLETED.equals(outboxEvent.getEventType())) {
+                OrderCompletedMessage message = objectMapper.readValue(outboxEvent.getPayload(), OrderCompletedMessage.class);
+                orderEventProducer.sendOrderCompletedMessage(message);
             } else {
                 throw new IllegalStateException("不支持的外盒事件类型: " + outboxEvent.getEventType());
             }

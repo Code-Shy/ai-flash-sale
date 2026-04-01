@@ -3,9 +3,12 @@ package com.weijinchuan.aiflashsale.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weijinchuan.aiflashsale.common.constant.KafkaTopicConstants;
+import com.weijinchuan.aiflashsale.common.constant.OutboxEventTypeConstants;
 import com.weijinchuan.aiflashsale.common.exception.BizException;
 import com.weijinchuan.aiflashsale.domain.OutboxEvent;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
+import com.weijinchuan.aiflashsale.event.OrderCompletedMessage;
+import com.weijinchuan.aiflashsale.event.OrderPaidMessage;
 import com.weijinchuan.aiflashsale.event.OutboxEventCreated;
 import com.weijinchuan.aiflashsale.mapper.OutboxEventMapper;
 import com.weijinchuan.aiflashsale.service.OutboxEventService;
@@ -22,7 +25,6 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class OutboxEventServiceImpl implements OutboxEventService {
 
-    public static final String EVENT_TYPE_ORDER_CREATED = "ORDER_CREATED";
     public static final int STATUS_PENDING = 0;
 
     private final OutboxEventMapper outboxEventMapper;
@@ -31,11 +33,40 @@ public class OutboxEventServiceImpl implements OutboxEventService {
 
     @Override
     public Long saveOrderCreatedEvent(OrderCreatedMessage message) {
+        return saveEvent(
+                OutboxEventTypeConstants.ORDER_CREATED,
+                KafkaTopicConstants.ORDER_CREATED_TOPIC,
+                String.valueOf(message.getOrderId()),
+                message
+        );
+    }
+
+    @Override
+    public Long saveOrderPaidEvent(OrderPaidMessage message) {
+        return saveEvent(
+                OutboxEventTypeConstants.ORDER_PAID,
+                KafkaTopicConstants.ORDER_PAID_TOPIC,
+                String.valueOf(message.getOrderId()),
+                message
+        );
+    }
+
+    @Override
+    public Long saveOrderCompletedEvent(OrderCompletedMessage message) {
+        return saveEvent(
+                OutboxEventTypeConstants.ORDER_COMPLETED,
+                KafkaTopicConstants.ORDER_COMPLETED_TOPIC,
+                String.valueOf(message.getOrderId()),
+                message
+        );
+    }
+
+    private Long saveEvent(String eventType, String topic, String eventKey, Object payload) {
         OutboxEvent outboxEvent = new OutboxEvent();
-        outboxEvent.setEventType(EVENT_TYPE_ORDER_CREATED);
-        outboxEvent.setTopic(KafkaTopicConstants.ORDER_CREATED_TOPIC);
-        outboxEvent.setEventKey(String.valueOf(message.getOrderId()));
-        outboxEvent.setPayload(serialize(message));
+        outboxEvent.setEventType(eventType);
+        outboxEvent.setTopic(topic);
+        outboxEvent.setEventKey(eventKey);
+        outboxEvent.setPayload(serialize(payload));
         outboxEvent.setStatus(STATUS_PENDING);
         outboxEvent.setRetryCount(0);
         outboxEvent.setNextRetryTime(LocalDateTime.now());
@@ -45,11 +76,11 @@ public class OutboxEventServiceImpl implements OutboxEventService {
         return outboxEvent.getId();
     }
 
-    private String serialize(OrderCreatedMessage message) {
+    private String serialize(Object payload) {
         try {
-            return objectMapper.writeValueAsString(message);
+            return objectMapper.writeValueAsString(payload);
         } catch (JsonProcessingException e) {
-            throw new BizException(5005, "序列化订单创建事件失败");
+            throw new BizException(5005, "序列化 Outbox 事件失败");
         }
     }
 }

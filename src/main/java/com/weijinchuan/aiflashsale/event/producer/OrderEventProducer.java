@@ -2,6 +2,8 @@ package com.weijinchuan.aiflashsale.event.producer;
 
 import com.weijinchuan.aiflashsale.common.constant.KafkaTopicConstants;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
+import com.weijinchuan.aiflashsale.event.OrderCompletedMessage;
+import com.weijinchuan.aiflashsale.event.OrderPaidMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -25,15 +27,26 @@ public class OrderEventProducer {
      * @param message 订单创建消息
      */
     public void sendOrderCreatedMessage(OrderCreatedMessage message) throws Exception {
-        kafkaTemplate.send(
-                KafkaTopicConstants.ORDER_CREATED_TOPIC,
-                String.valueOf(message.getOrderId()),
-                message
-        ).get(5, TimeUnit.SECONDS);
+        sendAndLog(KafkaTopicConstants.ORDER_CREATED_TOPIC, message.getOrderId(), message, message.getOrderNo(), "订单创建");
+    }
 
-        log.info("Kafka 发送订单创建消息成功，topic={}, orderId={}, orderNo={}",
-                KafkaTopicConstants.ORDER_CREATED_TOPIC,
-                message.getOrderId(),
-                message.getOrderNo());
+    /**
+     * 发送订单支付成功消息
+     */
+    public void sendOrderPaidMessage(OrderPaidMessage message) throws Exception {
+        sendAndLog(KafkaTopicConstants.ORDER_PAID_TOPIC, message.getOrderId(), message, message.getOrderNo(), "订单支付成功");
+    }
+
+    /**
+     * 发送订单完成消息
+     */
+    public void sendOrderCompletedMessage(OrderCompletedMessage message) throws Exception {
+        sendAndLog(KafkaTopicConstants.ORDER_COMPLETED_TOPIC, message.getOrderId(), message, message.getOrderNo(), "订单完成");
+    }
+
+    private void sendAndLog(String topic, Long orderId, Object message, String orderNo, String eventName) throws Exception {
+        kafkaTemplate.send(topic, String.valueOf(orderId), message).get(5, TimeUnit.SECONDS);
+        log.info("Kafka 发送{}消息成功，topic={}, orderId={}, orderNo={}",
+                eventName, topic, orderId, orderNo);
     }
 }

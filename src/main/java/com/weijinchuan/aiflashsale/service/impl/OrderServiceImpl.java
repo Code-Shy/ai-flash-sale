@@ -10,8 +10,10 @@ import com.weijinchuan.aiflashsale.domain.OrderItem;
 import com.weijinchuan.aiflashsale.domain.OrderOperateLog;
 import com.weijinchuan.aiflashsale.domain.Orders;
 import com.weijinchuan.aiflashsale.domain.Sku;
+import com.weijinchuan.aiflashsale.event.OrderCompletedMessage;
 import com.weijinchuan.aiflashsale.dto.order.SubmitOrderDTO;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
+import com.weijinchuan.aiflashsale.event.OrderPaidMessage;
 import com.weijinchuan.aiflashsale.mapper.CartItemMapper;
 import com.weijinchuan.aiflashsale.mapper.CartMapper;
 import com.weijinchuan.aiflashsale.mapper.InventoryMapper;
@@ -293,6 +295,15 @@ public class OrderServiceImpl implements OrderService {
         logOrderStatusChange(order.getId(), order.getOrderNo(),
                 OrderStatusConstants.PENDING_PAYMENT, OrderStatusConstants.PAID,
                 OPERATE_TYPE_PAY, OPERATE_BY_USER, "支付订单");
+
+        OrderPaidMessage message = new OrderPaidMessage();
+        message.setOrderId(order.getId());
+        message.setOrderNo(order.getOrderNo());
+        message.setUserId(order.getUserId());
+        message.setStoreId(order.getStoreId());
+        message.setPayAmount(order.getPayAmount());
+        message.setPaidTime(LocalDateTime.now());
+        outboxEventService.saveOrderPaidEvent(message);
     }
 
     @Override
@@ -309,6 +320,15 @@ public class OrderServiceImpl implements OrderService {
         logOrderStatusChange(order.getId(), order.getOrderNo(),
                 OrderStatusConstants.PAID, OrderStatusConstants.COMPLETED,
                 OPERATE_TYPE_COMPLETE, OPERATE_BY_USER, "完成订单");
+
+        OrderCompletedMessage message = new OrderCompletedMessage();
+        message.setOrderId(order.getId());
+        message.setOrderNo(order.getOrderNo());
+        message.setUserId(order.getUserId());
+        message.setStoreId(order.getStoreId());
+        message.setPayAmount(order.getPayAmount());
+        message.setCompletedTime(LocalDateTime.now());
+        outboxEventService.saveOrderCompletedEvent(message);
     }
 
     @Override

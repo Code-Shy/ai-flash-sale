@@ -21,4 +21,20 @@ public class KafkaTopicConfig {
     public NewTopic orderCreatedTopic() {
         return new NewTopic(KafkaTopicConstants.ORDER_CREATED_TOPIC, 1, (short) 1);
     }
+
+    /**
+     * 创建订单支付成功 Topic
+     */
+    @Bean
+    public NewTopic orderPaidTopic() {
+        return new NewTopic(KafkaTopicConstants.ORDER_PAID_TOPIC, 1, (short) 1);
+    }
+
+    /**
+     * 创建订单完成 Topic
+     */
+    @Bean
+    public NewTopic orderCompletedTopic() {
+        return new NewTopic(KafkaTopicConstants.ORDER_COMPLETED_TOPIC, 1, (short) 1);
+    }
 }
