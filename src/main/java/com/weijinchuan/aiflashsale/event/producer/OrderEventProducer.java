@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * 订单事件生产者
  */
@@ -22,12 +24,12 @@ public class OrderEventProducer {
      *
      * @param message 订单创建消息
      */
-    public void sendOrderCreatedMessage(OrderCreatedMessage message) {
+    public void sendOrderCreatedMessage(OrderCreatedMessage message) throws Exception {
         kafkaTemplate.send(
                 KafkaTopicConstants.ORDER_CREATED_TOPIC,
                 String.valueOf(message.getOrderId()),
                 message
-        );
+        ).get(5, TimeUnit.SECONDS);
 
         log.info("Kafka 发送订单创建消息成功，topic={}, orderId={}, orderNo={}",
                 KafkaTopicConstants.ORDER_CREATED_TOPIC,

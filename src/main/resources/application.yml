@@ -52,6 +52,13 @@ rag:
     default-top-k: 4
     preview-length: 88
 
+outbox:
+  retry:
+    fixed-delay-ms: 10000
+    batch-size: 20
+    max-attempts: 8
+    backoff-seconds: 30
+
 logging:
   level:
     org.apache.kafka: info

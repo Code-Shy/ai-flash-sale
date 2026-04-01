@@ -11,7 +11,6 @@ import com.weijinchuan.aiflashsale.domain.Orders;
 import com.weijinchuan.aiflashsale.domain.Sku;
 import com.weijinchuan.aiflashsale.dto.order.SubmitOrderDTO;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
-import com.weijinchuan.aiflashsale.event.producer.OrderEventProducer;
 import com.weijinchuan.aiflashsale.mapper.CartItemMapper;
 import com.weijinchuan.aiflashsale.mapper.CartMapper;
 import com.weijinchuan.aiflashsale.mapper.InventoryMapper;
@@ -20,6 +19,7 @@ import com.weijinchuan.aiflashsale.mapper.OrderOperateLogMapper;
 import com.weijinchuan.aiflashsale.mapper.OrdersMapper;
 import com.weijinchuan.aiflashsale.mapper.SkuMapper;
 import com.weijinchuan.aiflashsale.service.OrderService;
+import com.weijinchuan.aiflashsale.service.OutboxEventService;
 import com.weijinchuan.aiflashsale.vo.OrderDetailVO;
 import com.weijinchuan.aiflashsale.vo.OrderItemVO;
 import com.weijinchuan.aiflashsale.vo.OrderListVO;
@@ -47,7 +47,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderOperateLogMapper orderOperateLogMapper;
     private final SkuMapper skuMapper;
     private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
-    private final OrderEventProducer orderEventProducer;
+    private final OutboxEventService outboxEventService;
 
     /**
      * 提交订单
@@ -175,7 +175,7 @@ public class OrderServiceImpl implements OrderService {
             cartItemMapper.deleteById(item.getId());
         }
 
-        // ========= 3. 发送 Kafka 订单创建消息 =========
+        // ========= 3. 写入 Outbox，事务提交后再发送 Kafka =========
         OrderCreatedMessage message = new OrderCreatedMessage();
         message.setOrderId(order.getId());
         message.setOrderNo(order.getOrderNo());
@@ -184,7 +184,7 @@ public class OrderServiceImpl implements OrderService {
         message.setPayAmount(order.getPayAmount());
         message.setCreateTime(order.getCreateTime());
 
-        orderEventProducer.sendOrderCreatedMessage(message);
+        outboxEventService.saveOrderCreatedEvent(message);
 
         return order.getId();
     }
