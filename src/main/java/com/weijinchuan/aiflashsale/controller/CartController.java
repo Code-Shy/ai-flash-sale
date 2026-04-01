@@ -45,9 +45,10 @@ public class CartController {
      */
     @PutMapping("/items/{itemId}")
     @Operation(summary = "修改购物车项数量")
-    public Result<Void> updateItemQuantity(@PathVariable Long itemId,
+    public Result<Void> updateItemQuantity(@RequestParam Long userId,
+                                           @PathVariable Long itemId,
                                            @Valid @RequestBody UpdateCartItemDTO dto) {
-        cartService.updateItemQuantity(itemId, dto);
+        cartService.updateItemQuantity(userId, itemId, dto);
         return Result.success();
     }
 
@@ -56,8 +57,9 @@ public class CartController {
      */
     @DeleteMapping("/items/{itemId}")
     @Operation(summary = "删除购物车项")
-    public Result<Void> deleteItem(@PathVariable Long itemId) {
-        cartService.deleteItem(itemId);
+    public Result<Void> deleteItem(@RequestParam Long userId,
+                                   @PathVariable Long itemId) {
+        cartService.deleteItem(userId, itemId);
         return Result.success();
     }
 }

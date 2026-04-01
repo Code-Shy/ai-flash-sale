@@ -31,12 +31,12 @@ public interface OrderService {
     /**
      * 查询订单详情
      */
-    OrderDetailVO getOrderDetail(Long orderId);
+    OrderDetailVO getOrderDetail(Long userId, Long orderId);
 
     /**
      * 取消订单
      */
-    void cancelOrder(Long orderId);
+    void cancelOrder(Long userId, Long orderId);
 
     /**
      * 查询用户订单列表

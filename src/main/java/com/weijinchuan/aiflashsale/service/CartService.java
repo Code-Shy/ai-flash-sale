@@ -28,15 +28,17 @@ public interface CartService {
     /**
      * 修改购物车项数量
      *
+     * @param userId 用户 ID
      * @param itemId 购物车项 ID
      * @param dto 请求参数
      */
-    void updateItemQuantity(Long itemId, UpdateCartItemDTO dto);
+    void updateItemQuantity(Long userId, Long itemId, UpdateCartItemDTO dto);
 
     /**
      * 删除购物车项
      *
+     * @param userId 用户 ID
      * @param itemId 购物车项 ID
      */
-    void deleteItem(Long itemId);
+    void deleteItem(Long userId, Long itemId);
 }

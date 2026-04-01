@@ -182,11 +182,12 @@ public class CartServiceImpl implements CartService {
      * 修改购物车项数量
      */
     @Override
-    public void updateItemQuantity(Long itemId, UpdateCartItemDTO dto) {
+    public void updateItemQuantity(Long userId, Long itemId, UpdateCartItemDTO dto) {
         CartItem cartItem = cartItemMapper.selectById(itemId);
         if (cartItem == null) {
             throw new BizException(404, "购物车项不存在");
         }
+        validateCartItemOwner(userId, cartItem);
 
         cartItem.setQuantity(dto.getQuantity());
         cartItemMapper.updateById(cartItem);
@@ -196,11 +197,21 @@ public class CartServiceImpl implements CartService {
      * 删除购物车项
      */
     @Override
-    public void deleteItem(Long itemId) {
+    public void deleteItem(Long userId, Long itemId) {
         CartItem cartItem = cartItemMapper.selectById(itemId);
         if (cartItem == null) {
             throw new BizException(404, "购物车项不存在");
         }
+        validateCartItemOwner(userId, cartItem);
         cartItemMapper.deleteById(itemId);
+    }
+
+    /**
+     * 校验购物车项归属，避免越权修改或删除他人购物车数据。
+     */
+    private void validateCartItemOwner(Long userId, CartItem cartItem) {
+        if (!userId.equals(cartItem.getUserId())) {
+            throw new BizException(403, "无权操作该购物车项");
+        }
     }
 }

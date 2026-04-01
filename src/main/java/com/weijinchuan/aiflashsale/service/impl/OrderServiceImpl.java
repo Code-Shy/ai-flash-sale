@@ -193,11 +193,12 @@ public class OrderServiceImpl implements OrderService {
      * 查询订单详情
      */
     @Override
-    public OrderDetailVO getOrderDetail(Long orderId) {
+    public OrderDetailVO getOrderDetail(Long userId, Long orderId) {
         Orders order = ordersMapper.selectById(orderId);
         if (order == null) {
             throw new BizException(404, "订单不存在");
         }
+        validateOrderOwner(userId, order);
 
         List<OrderItem> orderItems = orderItemMapper.selectList(
                 new LambdaQueryWrapper<OrderItem>()
@@ -244,11 +245,12 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void cancelOrder(Long orderId) {
+    public void cancelOrder(Long userId, Long orderId) {
         Orders order = ordersMapper.selectById(orderId);
         if (order == null) {
             throw new BizException(404, "订单不存在");
         }
+        validateOrderOwner(userId, order);
 
         if (order.getOrderStatus() != 10) {
             throw new BizException(4004, "当前订单状态不允许取消");
@@ -329,5 +331,14 @@ public class OrderServiceImpl implements OrderService {
 
         stringRedisTemplate.opsForValue().set(tokenKey, "1", 10, java.util.concurrent.TimeUnit.MINUTES);
         return token;
+    }
+
+    /**
+     * 校验订单归属，避免越权查看或取消他人订单。
+     */
+    private void validateOrderOwner(Long userId, Orders order) {
+        if (!userId.equals(order.getUserId())) {
+            throw new BizException(403, "无权操作该订单");
+        }
     }
 }

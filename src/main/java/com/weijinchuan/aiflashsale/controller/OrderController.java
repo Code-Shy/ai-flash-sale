@@ -46,8 +46,9 @@ public class OrderController {
      */
     @GetMapping("/{orderId}")
     @Operation(summary = "查询订单详情")
-    public Result<OrderDetailVO> getOrderDetail(@PathVariable Long orderId) {
-        return Result.success(orderService.getOrderDetail(orderId));
+    public Result<OrderDetailVO> getOrderDetail(@RequestParam Long userId,
+                                                @PathVariable Long orderId) {
+        return Result.success(orderService.getOrderDetail(userId, orderId));
     }
 
     /**
@@ -55,8 +56,9 @@ public class OrderController {
      */
     @PostMapping("/{orderId}/cancel")
     @Operation(summary = "取消订单")
-    public Result<Void> cancelOrder(@PathVariable Long orderId) {
-        orderService.cancelOrder(orderId);
+    public Result<Void> cancelOrder(@RequestParam Long userId,
+                                    @PathVariable Long orderId) {
+        orderService.cancelOrder(userId, orderId);
         return Result.success();
     }
 
