@@ -69,6 +69,15 @@ rag:
     preview-length: 88
     max-candidate-docs: 300
 
+ai-shopping:
+  conversation:
+    recent-message-limit: 8
+    session-title-length: 18
+  clarification:
+    enabled: true
+    short-query-length: 8
+    recommendation-threshold: 2
+
 outbox:
   retry:
     fixed-delay-ms: 10000

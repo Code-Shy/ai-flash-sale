@@ -11,6 +11,16 @@ import java.util.List;
 public class ShoppingRecommendVO {
 
     /**
+     * 会话 ID
+     */
+    private Long sessionId;
+
+    /**
+     * 会话标题
+     */
+    private String sessionTitle;
+
+    /**
      * 原始查询
      */
     private String query;
@@ -24,6 +34,21 @@ public class ShoppingRecommendVO {
      * 导购总结
      */
     private String summary;
+
+    /**
+     * 记住的用户偏好
+     */
+    private List<String> rememberedPreferences;
+
+    /**
+     * 是否建议继续追问
+     */
+    private Boolean needClarification;
+
+    /**
+     * 追问内容
+     */
+    private String followUpQuestion;
 
     /**
      * 推荐结果

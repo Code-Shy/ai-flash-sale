@@ -28,10 +28,33 @@ public interface ShoppingGenerationProvider {
                                          List<ShoppingRecommendItemVO> recommendations);
 
     /**
+     * 生成带上下文的推荐总结
+     */
+    default String generateRecommendationSummary(String query,
+                                                 ShoppingIntentVO intent,
+                                                 List<ShoppingRecommendItemVO> recommendations,
+                                                 String conversationContext,
+                                                 List<String> preferenceHints) {
+        return generateRecommendationSummary(query, intent, recommendations);
+    }
+
+    /**
      * 生成问答回答
      */
     String generateAnswer(String query,
                           ShoppingIntentVO intent,
                           List<ShoppingRecommendItemVO> recommendations,
                           List<RetrievedKnowledge> references);
+
+    /**
+     * 生成带上下文的问答回答
+     */
+    default String generateAnswer(String query,
+                                  ShoppingIntentVO intent,
+                                  List<ShoppingRecommendItemVO> recommendations,
+                                  List<RetrievedKnowledge> references,
+                                  String conversationContext,
+                                  List<String> preferenceHints) {
+        return generateAnswer(query, intent, recommendations, references);
+    }
 }

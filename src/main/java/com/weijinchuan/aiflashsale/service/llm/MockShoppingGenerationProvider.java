@@ -53,6 +53,15 @@ public class MockShoppingGenerationProvider implements ShoppingGenerationProvide
     public String generateRecommendationSummary(String query,
                                                 ShoppingIntentVO intent,
                                                 List<ShoppingRecommendItemVO> recommendations) {
+        return generateRecommendationSummary(query, intent, recommendations, "", List.of());
+    }
+
+    @Override
+    public String generateRecommendationSummary(String query,
+                                                ShoppingIntentVO intent,
+                                                List<ShoppingRecommendItemVO> recommendations,
+                                                String conversationContext,
+                                                List<String> preferenceHints) {
         if (recommendations == null || recommendations.isEmpty()) {
             return "当前门店里没有找到特别匹配的商品，可以放宽预算、口味或场景条件再试。";
         }
@@ -71,6 +80,9 @@ public class MockShoppingGenerationProvider implements ShoppingGenerationProvide
         if (!isBlank(intent.getTastePreference())) {
             summary.append("同时会尽量贴合").append(intent.getTastePreference()).append("口味偏好。");
         }
+        if (preferenceHints != null && !preferenceHints.isEmpty()) {
+            summary.append("我也会继续沿用你最近的偏好来收敛推荐。");
+        }
 
         return summary.toString();
     }
@@ -80,7 +92,21 @@ public class MockShoppingGenerationProvider implements ShoppingGenerationProvide
                                  ShoppingIntentVO intent,
                                  List<ShoppingRecommendItemVO> recommendations,
                                  List<RetrievedKnowledge> references) {
+        return generateAnswer(query, intent, recommendations, references, "", List.of());
+    }
+
+    @Override
+    public String generateAnswer(String query,
+                                 ShoppingIntentVO intent,
+                                 List<ShoppingRecommendItemVO> recommendations,
+                                 List<RetrievedKnowledge> references,
+                                 String conversationContext,
+                                 List<String> preferenceHints) {
         StringBuilder answer = new StringBuilder();
+
+        if (!isBlank(conversationContext)) {
+            answer.append("我也参考了你刚才的对话上下文，");
+        }
 
         if (references != null && !references.isEmpty()) {
             answer.append("结合门店知识库信息，")
@@ -102,6 +128,9 @@ public class MockShoppingGenerationProvider implements ShoppingGenerationProvide
 
         if (!isBlank(intent.getSceneKeyword())) {
             answer.append("我会继续按").append(intent.getSceneKeyword()).append("场景理解你的需求。");
+        }
+        if (preferenceHints != null && !preferenceHints.isEmpty()) {
+            answer.append("后续也会参考你近期稳定的偏好。");
         }
 
         return answer.toString();

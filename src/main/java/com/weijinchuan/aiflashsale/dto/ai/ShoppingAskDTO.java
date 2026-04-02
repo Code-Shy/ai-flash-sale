@@ -11,6 +11,11 @@ import lombok.Data;
 public class ShoppingAskDTO {
 
     /**
+     * 会话 ID，传空表示开启新会话
+     */
+    private Long sessionId;
+
+    /**
      * 用户 ID
      */
     @NotNull(message = "用户 ID 不能为空")

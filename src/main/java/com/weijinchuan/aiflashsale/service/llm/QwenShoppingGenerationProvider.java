@@ -69,6 +69,15 @@ public class QwenShoppingGenerationProvider implements ShoppingGenerationProvide
     public String generateRecommendationSummary(String query,
                                                 ShoppingIntentVO intent,
                                                 List<ShoppingRecommendItemVO> recommendations) {
+        return generateRecommendationSummary(query, intent, recommendations, "", List.of());
+    }
+
+    @Override
+    public String generateRecommendationSummary(String query,
+                                                ShoppingIntentVO intent,
+                                                List<ShoppingRecommendItemVO> recommendations,
+                                                String conversationContext,
+                                                List<String> preferenceHints) {
         return generateText(
                 """
                         你是即时零售导购助手。
@@ -81,10 +90,25 @@ public class QwenShoppingGenerationProvider implements ShoppingGenerationProvide
                 """
                         用户需求：%s
                         结构化意图：%s
+                        最近对话：
+                        %s
+                        已记住偏好：%s
                         推荐商品：
                         %s
-                        """.formatted(query, formatIntent(intent), formatRecommendationList(recommendations)),
-                () -> mockShoppingGenerationProvider.generateRecommendationSummary(query, intent, recommendations)
+                        """.formatted(
+                        query,
+                        formatIntent(intent),
+                        safeText(conversationContext),
+                        formatPreferenceHints(preferenceHints),
+                        formatRecommendationList(recommendations)
+                ),
+                () -> mockShoppingGenerationProvider.generateRecommendationSummary(
+                        query,
+                        intent,
+                        recommendations,
+                        conversationContext,
+                        preferenceHints
+                )
         );
     }
 
@@ -93,6 +117,16 @@ public class QwenShoppingGenerationProvider implements ShoppingGenerationProvide
                                  ShoppingIntentVO intent,
                                  List<ShoppingRecommendItemVO> recommendations,
                                  List<RetrievedKnowledge> references) {
+        return generateAnswer(query, intent, recommendations, references, "", List.of());
+    }
+
+    @Override
+    public String generateAnswer(String query,
+                                 ShoppingIntentVO intent,
+                                 List<ShoppingRecommendItemVO> recommendations,
+                                 List<RetrievedKnowledge> references,
+                                 String conversationContext,
+                                 List<String> preferenceHints) {
         return generateText(
                 """
                         你是即时零售导购问答助手。
@@ -106,12 +140,29 @@ public class QwenShoppingGenerationProvider implements ShoppingGenerationProvide
                 """
                         用户问题：%s
                         结构化意图：%s
+                        最近对话：
+                        %s
+                        已记住偏好：%s
                         候选商品：
                         %s
                         参考知识：
                         %s
-                        """.formatted(query, formatIntent(intent), formatRecommendationList(recommendations), formatReferences(references)),
-                () -> mockShoppingGenerationProvider.generateAnswer(query, intent, recommendations, references)
+                        """.formatted(
+                        query,
+                        formatIntent(intent),
+                        safeText(conversationContext),
+                        formatPreferenceHints(preferenceHints),
+                        formatRecommendationList(recommendations),
+                        formatReferences(references)
+                ),
+                () -> mockShoppingGenerationProvider.generateAnswer(
+                        query,
+                        intent,
+                        recommendations,
+                        references,
+                        conversationContext,
+                        preferenceHints
+                )
         );
     }
 
@@ -205,6 +256,13 @@ public class QwenShoppingGenerationProvider implements ShoppingGenerationProvide
         return references.stream()
                 .map(reference -> reference.getDocument().getTitle() + "：" + reference.getSnippet())
                 .collect(Collectors.joining("\n"));
+    }
+
+    private String formatPreferenceHints(List<String> preferenceHints) {
+        if (preferenceHints == null || preferenceHints.isEmpty()) {
+            return "暂无稳定偏好";
+        }
+        return String.join("；", preferenceHints);
     }
 
     private String safeText(String value) {
