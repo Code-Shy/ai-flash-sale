@@ -59,9 +59,15 @@ wechat:
 
 rag:
   knowledge-base-location: ai/knowledge-base.json
+  bootstrap-from-classpath-on-startup: false
+  ingestion:
+    source: classpath-json
+    chunk-size: 120
+    chunk-overlap: 24
   retrieval:
     default-top-k: 4
     preview-length: 88
+    max-candidate-docs: 300
 
 outbox:
   retry:

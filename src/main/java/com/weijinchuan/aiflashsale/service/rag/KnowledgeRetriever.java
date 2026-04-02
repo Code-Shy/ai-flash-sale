@@ -1,42 +1,48 @@
 package com.weijinchuan.aiflashsale.service.rag;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weijinchuan.aiflashsale.domain.KnowledgeChunk;
+import com.weijinchuan.aiflashsale.domain.KnowledgeDoc;
+import com.weijinchuan.aiflashsale.mapper.KnowledgeChunkMapper;
+import com.weijinchuan.aiflashsale.mapper.KnowledgeDocMapper;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 简单知识检索器
+ * 知识检索器
  *
- * 当前实现使用 classpath 中的知识库 JSON 做轻量检索，
- * 后续可以替换为向量库或混合检索而不影响业务层。
+ * 优先从数据库知识文档 / 分片检索；
+ * 如果数据库尚未初始化，则回退到 classpath JSON 知识库。
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class KnowledgeRetriever {
 
+    private static final int STATUS_ACTIVE = 1;
     private static final Pattern TERM_PATTERN = Pattern.compile("[\\p{IsHan}A-Za-z0-9]{2,}");
 
     private final ObjectMapper objectMapper;
-
-    @Value("${rag.knowledge-base-location:ai/knowledge-base.json}")
-    private String knowledgeBaseLocation;
+    private final KnowledgeResourceLoader knowledgeResourceLoader;
+    private final KnowledgeDocMapper knowledgeDocMapper;
+    private final KnowledgeChunkMapper knowledgeChunkMapper;
 
     @Value("${rag.retrieval.default-top-k:4}")
     private int defaultTopK;
@@ -44,35 +50,22 @@ public class KnowledgeRetriever {
     @Value("${rag.retrieval.preview-length:88}")
     private int previewLength;
 
-    private List<KnowledgeDocument> documents = List.of();
+    @Value("${rag.retrieval.max-candidate-docs:300}")
+    private int maxCandidateDocs;
+
+    private List<KnowledgeDocument> fallbackDocuments = List.of();
 
     @PostConstruct
-    public void loadKnowledgeBase() {
-        ClassPathResource resource = new ClassPathResource(knowledgeBaseLocation);
-        if (!resource.exists()) {
-            log.warn("RAG 知识库资源不存在，location={}", knowledgeBaseLocation);
-            documents = List.of();
-            return;
-        }
-
-        try (InputStream inputStream = resource.getInputStream()) {
-            List<KnowledgeDocument> loaded = objectMapper.readValue(
-                    inputStream,
-                    new TypeReference<List<KnowledgeDocument>>() {}
-            );
-            documents = loaded == null ? List.of() : loaded;
-            log.info("RAG 知识库加载完成，location={}, size={}", knowledgeBaseLocation, documents.size());
-        } catch (Exception e) {
-            log.warn("RAG 知识库加载失败，location={}", knowledgeBaseLocation, e);
-            documents = List.of();
-        }
+    public void loadFallbackKnowledgeBase() {
+        fallbackDocuments = knowledgeResourceLoader.loadFromClasspath();
+        log.info("RAG fallback 知识库加载完成，size={}", fallbackDocuments.size());
     }
 
     /**
      * 检索知识片段
      */
     public List<RetrievedKnowledge> search(Long storeId, Long skuId, String query, int limit) {
-        if (isBlank(query) || documents.isEmpty()) {
+        if (isBlank(query)) {
             return List.of();
         }
 
@@ -80,13 +73,94 @@ public class KnowledgeRetriever {
         String normalizedQuery = normalize(query);
         List<String> terms = extractTerms(query);
 
+        List<RetrievedKnowledge> databaseResults = searchFromDatabase(storeId, skuId, normalizedQuery, terms, topK);
+        if (!databaseResults.isEmpty()) {
+            return databaseResults;
+        }
+
+        return searchFromFallback(storeId, skuId, normalizedQuery, terms, topK);
+    }
+
+    private List<RetrievedKnowledge> searchFromDatabase(Long storeId,
+                                                        Long skuId,
+                                                        String normalizedQuery,
+                                                        List<String> terms,
+                                                        int topK) {
+        try {
+            List<KnowledgeDoc> docEntities = knowledgeDocMapper.selectList(
+                    new LambdaQueryWrapper<KnowledgeDoc>()
+                            .eq(KnowledgeDoc::getStatus, STATUS_ACTIVE)
+                            .orderByDesc(KnowledgeDoc::getUpdateTime)
+                            .last("LIMIT " + maxCandidateDocs)
+            );
+
+            Map<Long, KnowledgeDocument> documents = new HashMap<>();
+            for (KnowledgeDoc docEntity : docEntities) {
+                KnowledgeDocument document = toKnowledgeDocument(docEntity);
+                if (!withinScope(document, storeId, skuId)) {
+                    continue;
+                }
+                documents.put(docEntity.getId(), document);
+            }
+
+            if (documents.isEmpty()) {
+                return List.of();
+            }
+
+            List<KnowledgeChunk> chunks = knowledgeChunkMapper.selectList(
+                    new LambdaQueryWrapper<KnowledgeChunk>()
+                            .eq(KnowledgeChunk::getStatus, STATUS_ACTIVE)
+                            .in(KnowledgeChunk::getDocumentId, documents.keySet())
+                            .orderByAsc(KnowledgeChunk::getDocumentId, KnowledgeChunk::getChunkIndex)
+            );
+
+            Map<Long, RetrievedKnowledge> bestByDocument = new HashMap<>();
+            for (KnowledgeChunk chunk : chunks) {
+                KnowledgeDocument document = documents.get(chunk.getDocumentId());
+                if (document == null) {
+                    continue;
+                }
+
+                int score = scoreChunk(document, chunk, normalizedQuery, terms);
+                if (score <= 0) {
+                    continue;
+                }
+
+                RetrievedKnowledge currentBest = bestByDocument.get(chunk.getDocumentId());
+                if (currentBest != null && currentBest.getScore() >= score) {
+                    continue;
+                }
+
+                RetrievedKnowledge retrieved = new RetrievedKnowledge();
+                retrieved.setDocument(document);
+                retrieved.setScore(score);
+                retrieved.setSnippet(buildSnippet(chunk.getContent(), normalizedQuery, terms));
+                bestByDocument.put(chunk.getDocumentId(), retrieved);
+            }
+
+            return sortAndTrim(new ArrayList<>(bestByDocument.values()), topK);
+        } catch (Exception e) {
+            log.warn("数据库知识检索失败，将回退到 classpath JSON", e);
+            return List.of();
+        }
+    }
+
+    private List<RetrievedKnowledge> searchFromFallback(Long storeId,
+                                                        Long skuId,
+                                                        String normalizedQuery,
+                                                        List<String> terms,
+                                                        int topK) {
+        if (fallbackDocuments.isEmpty()) {
+            return List.of();
+        }
+
         List<RetrievedKnowledge> results = new ArrayList<>();
-        for (KnowledgeDocument document : documents) {
+        for (KnowledgeDocument document : fallbackDocuments) {
             if (!withinScope(document, storeId, skuId)) {
                 continue;
             }
 
-            int score = scoreDocument(document, storeId, skuId, normalizedQuery, terms);
+            int score = scoreDocument(document, normalizedQuery, terms);
             if (score <= 0) {
                 continue;
             }
@@ -97,7 +171,10 @@ public class KnowledgeRetriever {
             retrieved.setSnippet(buildSnippet(document.getContent(), normalizedQuery, terms));
             results.add(retrieved);
         }
+        return sortAndTrim(results, topK);
+    }
 
+    private List<RetrievedKnowledge> sortAndTrim(List<RetrievedKnowledge> results, int topK) {
         results.sort(Comparator.comparing(RetrievedKnowledge::getScore).reversed());
         if (results.size() <= topK) {
             return results;
@@ -105,26 +182,28 @@ public class KnowledgeRetriever {
         return new ArrayList<>(results.subList(0, topK));
     }
 
-    private boolean withinScope(KnowledgeDocument document, Long storeId, Long skuId) {
-        if (storeId != null && document.getStoreId() != null && !Objects.equals(storeId, document.getStoreId())) {
-            return false;
+    private int scoreChunk(KnowledgeDocument document,
+                           KnowledgeChunk chunk,
+                           String normalizedQuery,
+                           List<String> terms) {
+        int score = scoreDocument(document, normalizedQuery, terms);
+        String normalizedChunk = safeText(chunk.getNormalizedText());
+
+        if (!normalizedQuery.isEmpty() && normalizedChunk.contains(normalizedQuery)) {
+            score += 15;
         }
-        return skuId == null || document.getSkuId() == null || Objects.equals(skuId, document.getSkuId());
+        for (String term : terms) {
+            if (term.length() >= 2 && normalizedChunk.contains(term)) {
+                score += Math.min(6, term.length() + 2);
+            }
+        }
+        return score;
     }
 
     private int scoreDocument(KnowledgeDocument document,
-                              Long storeId,
-                              Long skuId,
                               String normalizedQuery,
                               List<String> terms) {
         int score = 0;
-
-        if (storeId != null && Objects.equals(storeId, document.getStoreId())) {
-            score += 6;
-        }
-        if (skuId != null && Objects.equals(skuId, document.getSkuId())) {
-            score += 10;
-        }
 
         String normalizedText = normalize(
                 safeText(document.getTitle()) + " "
@@ -134,7 +213,7 @@ public class KnowledgeRetriever {
         );
 
         if (!normalizedQuery.isEmpty() && normalizedText.contains(normalizedQuery)) {
-            score += 12;
+            score += 10;
         }
 
         String normalizedCategory = normalize(document.getCategory());
@@ -159,7 +238,46 @@ public class KnowledgeRetriever {
             }
         }
 
+        if (document.getStoreId() != null) {
+            score += 3;
+        }
+        if (document.getSkuId() != null) {
+            score += 4;
+        }
         return score;
+    }
+
+    private KnowledgeDocument toKnowledgeDocument(KnowledgeDoc entity) {
+        KnowledgeDocument document = new KnowledgeDocument();
+        document.setId(entity.getDocCode());
+        document.setTitle(entity.getTitle());
+        document.setContent(entity.getContent());
+        document.setDocType(entity.getDocType());
+        document.setStoreId(entity.getStoreId());
+        document.setSkuId(entity.getSkuId());
+        document.setCategory(entity.getCategory());
+        document.setTags(parseTags(entity.getTagsJson()));
+        return document;
+    }
+
+    private List<String> parseTags(String tagsJson) {
+        if (isBlank(tagsJson)) {
+            return List.of();
+        }
+        try {
+            List<String> tags = objectMapper.readValue(tagsJson, new TypeReference<List<String>>() {});
+            return tags == null ? List.of() : tags;
+        } catch (Exception e) {
+            log.warn("解析知识标签失败，tagsJson={}", tagsJson, e);
+            return List.of();
+        }
+    }
+
+    private boolean withinScope(KnowledgeDocument document, Long storeId, Long skuId) {
+        if (storeId != null && document.getStoreId() != null && !Objects.equals(storeId, document.getStoreId())) {
+            return false;
+        }
+        return skuId == null || document.getSkuId() == null || Objects.equals(skuId, document.getSkuId());
     }
 
     private String buildSnippet(String content, String normalizedQuery, List<String> terms) {
@@ -168,19 +286,12 @@ public class KnowledgeRetriever {
         }
 
         String trimmed = content.trim();
-        String normalizedContent = normalize(trimmed);
-
         int hitIndex = -1;
-        if (!normalizedQuery.isEmpty()) {
-            hitIndex = normalizedContent.indexOf(normalizedQuery);
-        }
-
-        if (hitIndex < 0) {
-            for (String term : terms) {
-                hitIndex = normalizedContent.indexOf(term);
-                if (hitIndex >= 0) {
-                    break;
-                }
+        String lowerText = trimmed.toLowerCase(Locale.ROOT);
+        for (String term : terms) {
+            hitIndex = lowerText.indexOf(term.toLowerCase(Locale.ROOT));
+            if (hitIndex >= 0) {
+                break;
             }
         }
 
@@ -188,9 +299,10 @@ public class KnowledgeRetriever {
             return abbreviate(trimmed, previewLength);
         }
 
-        int start = Math.max(0, hitIndex - (previewLength / 3));
-        int end = Math.min(trimmed.length(), start + previewLength);
-        return abbreviate(trimmed.substring(start, end), previewLength);
+        int start = Math.max(0, Math.min(trimmed.length() - 1, hitIndex));
+        int snippetStart = Math.max(0, start - (previewLength / 3));
+        int end = Math.min(trimmed.length(), snippetStart + previewLength);
+        return abbreviate(trimmed.substring(snippetStart, end), previewLength);
     }
 
     private String abbreviate(String text, int maxLength) {
