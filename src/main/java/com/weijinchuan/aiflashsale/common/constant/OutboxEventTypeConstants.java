@@ -11,4 +11,5 @@ public final class OutboxEventTypeConstants {
     public static final String ORDER_CREATED = "ORDER_CREATED";
     public static final String ORDER_PAID = "ORDER_PAID";
     public static final String ORDER_COMPLETED = "ORDER_COMPLETED";
+    public static final String ORDER_TIMEOUT = "ORDER_TIMEOUT";
 }

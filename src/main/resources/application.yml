@@ -91,6 +91,12 @@ order:
     close:
       fixed-delay-ms: 10000
       batch-size: 20
+      # 设为 false 禁用旧的 Spring 定时任务扫描，改由 Kafka 延时队列驱动
+      enabled: false
+    nack:
+      sleep-ms: 10000
+    recovery:
+      batch-size: 100
 
 logging:
   level:

@@ -37,4 +37,17 @@ public class KafkaTopicConfig {
     public NewTopic orderCompletedTopic() {
         return new NewTopic(KafkaTopicConstants.ORDER_COMPLETED_TOPIC, 1, (short) 1);
     }
+
+    /**
+     * 订单超时延时 Topic（主 + 重试，各 1 分区）
+     */
+    @Bean
+    public NewTopic orderTimeoutTopic() {
+        return new NewTopic(KafkaTopicConstants.ORDER_TIMEOUT_TOPIC, 1, (short) 1);
+    }
+
+    @Bean
+    public NewTopic orderTimeoutRetryTopic() {
+        return new NewTopic(KafkaTopicConstants.ORDER_TIMEOUT_RETRY_TOPIC, 1, (short) 1);
+    }
 }

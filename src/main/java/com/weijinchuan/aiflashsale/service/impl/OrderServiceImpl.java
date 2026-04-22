@@ -14,6 +14,7 @@ import com.weijinchuan.aiflashsale.event.OrderCompletedMessage;
 import com.weijinchuan.aiflashsale.dto.order.SubmitOrderDTO;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
 import com.weijinchuan.aiflashsale.event.OrderPaidMessage;
+import com.weijinchuan.aiflashsale.event.OrderTimeoutMessage;
 import com.weijinchuan.aiflashsale.mapper.CartItemMapper;
 import com.weijinchuan.aiflashsale.mapper.CartMapper;
 import com.weijinchuan.aiflashsale.mapper.InventoryMapper;
@@ -192,6 +193,13 @@ public class OrderServiceImpl implements OrderService {
         message.setCreateTime(order.getCreateTime());
 
         outboxEventService.saveOrderCreatedEvent(message);
+
+        // ========= 4. 写入超时延时消息到 Outbox，事务提交后发送到 Kafka =========
+        // Consumer 收到消息后检查 executeAt，未到期则 nack 重试，到期则执行关单
+        OrderTimeoutMessage timeoutMessage = new OrderTimeoutMessage();
+        timeoutMessage.setOrderId(order.getId());
+        timeoutMessage.setExecuteAt(order.getExpireTime());
+        outboxEventService.saveOrderTimeoutEvent(timeoutMessage);
 
         return order.getId();
     }

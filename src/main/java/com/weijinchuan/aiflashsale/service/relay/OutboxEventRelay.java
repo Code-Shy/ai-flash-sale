@@ -7,6 +7,7 @@ import com.weijinchuan.aiflashsale.domain.OutboxEvent;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
 import com.weijinchuan.aiflashsale.event.OrderCompletedMessage;
 import com.weijinchuan.aiflashsale.event.OrderPaidMessage;
+import com.weijinchuan.aiflashsale.event.OrderTimeoutMessage;
 import com.weijinchuan.aiflashsale.event.OutboxEventCreated;
 import com.weijinchuan.aiflashsale.event.producer.OrderEventProducer;
 import com.weijinchuan.aiflashsale.mapper.OutboxEventMapper;
@@ -99,6 +100,9 @@ public class OutboxEventRelay {
             } else if (OutboxEventTypeConstants.ORDER_COMPLETED.equals(outboxEvent.getEventType())) {
                 OrderCompletedMessage message = objectMapper.readValue(outboxEvent.getPayload(), OrderCompletedMessage.class);
                 orderEventProducer.sendOrderCompletedMessage(message);
+            } else if (OutboxEventTypeConstants.ORDER_TIMEOUT.equals(outboxEvent.getEventType())) {
+                OrderTimeoutMessage message = objectMapper.readValue(outboxEvent.getPayload(), OrderTimeoutMessage.class);
+                orderEventProducer.sendOrderTimeoutMessage(message);
             } else {
                 throw new IllegalStateException("不支持的外盒事件类型: " + outboxEvent.getEventType());
             }

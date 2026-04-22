@@ -11,7 +11,11 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * 订单超时关闭任务
+ * 订单超时关闭任务（兜底）
+ *
+ * 主流程已改为 Kafka 延时队列驱动，此 Job 作为兜底保障：
+ * 处理极少数因消息丢失或消费失败而漏掉的超时订单。
+ * 通过 order.timeout.close.enabled=false 可禁用（迁移稳定后建议保留作兜底）。
  */
 @Slf4j
 @Component
@@ -24,11 +28,14 @@ public class OrderTimeoutCloseJob {
     @Value("${order.timeout.close.batch-size:20}")
     private int batchSize;
 
-    /**
-     * 定时扫描超时未支付订单并释放库存。
-     */
+    @Value("${order.timeout.close.enabled:true}")
+    private boolean enabled;
+
     @Scheduled(fixedDelayString = "${order.timeout.close.fixed-delay-ms:10000}")
     public void closeExpiredOrders() {
+        if (!enabled) {
+            return;
+        }
         List<Long> orderIds = ordersMapper.selectExpiredPendingOrderIds(batchSize);
         for (Long orderId : orderIds) {
             try {

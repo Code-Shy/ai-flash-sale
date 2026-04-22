@@ -9,6 +9,7 @@ import com.weijinchuan.aiflashsale.domain.OutboxEvent;
 import com.weijinchuan.aiflashsale.event.OrderCreatedMessage;
 import com.weijinchuan.aiflashsale.event.OrderCompletedMessage;
 import com.weijinchuan.aiflashsale.event.OrderPaidMessage;
+import com.weijinchuan.aiflashsale.event.OrderTimeoutMessage;
 import com.weijinchuan.aiflashsale.event.OutboxEventCreated;
 import com.weijinchuan.aiflashsale.mapper.OutboxEventMapper;
 import com.weijinchuan.aiflashsale.service.OutboxEventService;
@@ -56,6 +57,16 @@ public class OutboxEventServiceImpl implements OutboxEventService {
         return saveEvent(
                 OutboxEventTypeConstants.ORDER_COMPLETED,
                 KafkaTopicConstants.ORDER_COMPLETED_TOPIC,
+                String.valueOf(message.getOrderId()),
+                message
+        );
+    }
+
+    @Override
+    public Long saveOrderTimeoutEvent(OrderTimeoutMessage message) {
+        return saveEvent(
+                OutboxEventTypeConstants.ORDER_TIMEOUT,
+                KafkaTopicConstants.ORDER_TIMEOUT_TOPIC,
                 String.valueOf(message.getOrderId()),
                 message
         );

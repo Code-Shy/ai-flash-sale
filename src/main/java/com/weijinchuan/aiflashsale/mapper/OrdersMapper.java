@@ -36,4 +36,20 @@ public interface OrdersMapper extends BaseMapper<Orders> {
         LIMIT #{limit}
         """)
     List<Long> selectExpiredPendingOrderIds(@Param("limit") int limit);
+
+    /**
+     * 查询仍在待支付且尚未过期的订单（用于崩溃恢复补发超时消息）。
+     * 返回 Orders 对象以便获取 expireTime。
+     */
+    @Select("""
+        SELECT id, expire_time
+        FROM orders
+        WHERE order_status = 10
+          AND expire_time IS NOT NULL
+          AND expire_time > NOW()
+          AND id > #{minId}
+        ORDER BY id ASC
+        LIMIT #{limit}
+        """)
+    List<Orders> selectPendingNotExpiredOrders(@Param("minId") long minId, @Param("limit") int limit);
 }
